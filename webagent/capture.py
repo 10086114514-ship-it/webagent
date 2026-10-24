@@ -25,6 +25,23 @@ try:
 except OSError:  # pragma: no cover
     shcore = None
 
+# 64 位句柄必须显式声明，否则会被截断成 32 位
+kernel32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
+kernel32.OpenProcess.restype = wt.HANDLE
+kernel32.CloseHandle.argtypes = [wt.HANDLE]
+kernel32.CloseHandle.restype = wt.BOOL
+kernel32.QueryFullProcessImageNameW.argtypes = [
+    wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)
+]
+kernel32.QueryFullProcessImageNameW.restype = wt.BOOL
+
+#: 常见浏览器进程名（小写）。window_match=browser 时用它认窗口，完全不看标题。
+BROWSER_EXES = {
+    "msedge.exe", "chrome.exe", "firefox.exe", "brave.exe", "opera.exe",
+    "vivaldi.exe", "iexplore.exe", "360se.exe", "360chrome.exe",
+    "qqbrowser.exe", "sogouexplorer.exe", "liebao.exe", "maxthon.exe",
+}
+
 
 # --------------------------------------------------------------------------- #
 # DPI
@@ -139,6 +156,69 @@ def find_window(pattern: str, match: str = "contains") -> WindowInfo | None:
         if predicate(info.title):
             return info
     return None
+
+
+def window_process_name(hwnd: int) -> str:
+    """返回窗口所属进程的可执行文件名（小写），如 ``msedge.exe``。"""
+    pid = wt.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    if not pid.value:
+        return ""
+    handle = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        size = wt.DWORD(len(buf))
+        if kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+            return buf.value.rsplit("\\", 1)[-1].lower()
+    finally:
+        kernel32.CloseHandle(handle)
+    return ""
+
+
+def find_browser_window(prefer_foreground: bool = True) -> WindowInfo | None:
+    """按进程名找浏览器窗口，不依赖标签页标题。
+
+    优先返回当前前台的浏览器窗口；否则返回面积最大的那个（最小化的排在后面）。
+    """
+    candidates: list[WindowInfo] = []
+    for info in list_windows(min_width=400, min_height=300):
+        try:
+            if window_process_name(info.hwnd) in BROWSER_EXES:
+                candidates.append(info)
+        except Exception:  # pragma: no cover - 个别系统窗口取不到进程
+            continue
+    if not candidates:
+        return None
+
+    visible = [c for c in candidates if not c.iconic] or candidates
+    if prefer_foreground:
+        fg = foreground_hwnd()
+        for info in visible:
+            if info.hwnd == fg:
+                return info
+    return max(visible, key=lambda i: i.rect[2] * i.rect[3])
+
+
+def find_process_window(process: str) -> WindowInfo | None:
+    """按进程名列表（用 | 或逗号分隔）挑窗口，优先非最小化、面积最大者。"""
+    exes = {p.strip().lower() for p in process.replace(",", "|").split("|") if p.strip()}
+    if not exes:
+        return None
+    hits: list[WindowInfo] = []
+    for info in list_windows(min_width=200, min_height=150):
+        try:
+            if window_process_name(info.hwnd) in exes:
+                hits.append(info)
+        except Exception:  # pragma: no cover
+            continue
+    if not hits:
+        return None
+    return max(
+        [h for h in hits if not h.iconic] or hits,
+        key=lambda i: i.rect[2] * i.rect[3],
+    )
 
 
 def client_rect(hwnd: int) -> tuple[int, int, int, int]:
@@ -263,14 +343,41 @@ def grab(rect: Rect) -> Image.Image:
 
 
 def current_region(cfg: Config) -> tuple[Rect, int | None]:
-    """按配置算出目标区域；返回 (区域, 窗口句柄或 None)。"""
-    title = cfg.target.window_title
-    info = find_window(title, cfg.target.window_match)
-    if info is None:
-        raise LookupError(
-            f"未找到标题匹配 {title!r} 的窗口。请打开目标网页后运行 "
-            f"`python -m webagent windows` 查看可用标题。"
-        )
+    """按配置算出目标区域；返回 (区域, 窗口句柄或 None)。
+
+    支持三种定位方式：
+    - ``window_match: "browser"``  : 按浏览器进程找窗口，完全不看标题（推荐）
+    - ``window_match: "process"``  : 按 ``target.process`` 里的进程名找窗口
+    - 其它（contains/regex/exact） : 按 ``target.window_title`` 匹配标题
+    """
+    match = (getattr(cfg.target, "window_match", "contains") or "contains").lower()
+    title = getattr(cfg.target, "window_title", "") or ""
+
+    info: WindowInfo | None
+    if match in ("browser", "auto"):
+        info = find_browser_window(prefer_foreground=True)
+        if info is None:
+            raise LookupError(
+                "没找到任何浏览器窗口（msedge/chrome/firefox…）。请先打开网页；"
+                "或把 target.window_match 改成 contains，并用 target.window_title 指定标题。"
+            )
+    elif match == "process":
+        process = getattr(cfg.target, "process", "") or "msedge.exe"
+        info = find_process_window(process)
+        if info is None:
+            raise LookupError(
+                f"没找到进程属于 {process!r} 的窗口。用 `python -m webagent windows` "
+                f"查看进程名，或在 target.process 里用 | 分隔多个进程。"
+            )
+    else:
+        info = find_window(title, match)
+        if info is None:
+            raise LookupError(
+                f"未找到标题匹配 {title!r} 的窗口。可运行 `python -m webagent windows` "
+                f"查看可用标题；或把 target.window_match 改为 browser"
+                f"（按浏览器进程查找，不用关心标题）。"
+            )
+
     if user32.IsIconic(info.hwnd):
         user32.ShowWindow(info.hwnd, 9)  # SW_RESTORE
         time.sleep(0.3)

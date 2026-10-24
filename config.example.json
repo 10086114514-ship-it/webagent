@@ -2,8 +2,10 @@
   "_comment": "复制为 config.json 后使用。所有字段均可省略，以 _ 开头的键仅作注释。详见 README.md。",
 
   "target": {
+    "_window_match": "browser=按浏览器进程查找（推荐，换网页/换标题都不用改）；process=按下面 process 的进程名；contains/regex/exact=按 window_title 匹配",
+    "window_match": "browser",
     "window_title": "在线测验",
-    "window_match": "contains",
+    "process": "",
     "client_area": true,
     "activate": true
   },

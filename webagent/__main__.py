@@ -58,7 +58,11 @@ def cmd_init(args) -> int:
 
 def cmd_windows(_args) -> int:
     for w in capture.list_windows():
-        print(w.human)
+        try:
+            proc = capture.window_process_name(w.hwnd) or "?"
+        except Exception:
+            proc = "?"
+        print(f"{w.human}  <{proc}>")
     return 0
 
 
@@ -78,9 +82,22 @@ def cmd_doctor(args) -> int:
     vs = capture.virtual_screen_rect()
     print(f"虚拟屏幕      : {vs[2]}x{vs[3]} @ {vs[0]},{vs[1]}")
 
-    title = cfg.target.window_title
-    info = capture.find_window(title, cfg.target.window_match)
-    print(f"目标窗口      : {title!r} -> {'找到 ' + info.human if info else '未找到（先打开网页）'}")
+    match = (getattr(cfg.target, "window_match", "contains") or "contains").lower()
+    try:
+        if match in ("browser", "auto"):
+            info = capture.find_browser_window()
+            desc = "browser（按浏览器进程，不看标题）"
+        elif match == "process":
+            process = getattr(cfg.target, "process", "") or "msedge.exe"
+            info = capture.find_process_window(process)
+            desc = f"process={process}"
+        else:
+            info = capture.find_window(cfg.target.window_title, match)
+            desc = f"{match} {cfg.target.window_title!r}"
+        found = f"找到 {info.human}" if info else "未找到（先打开网页）"
+    except Exception as e:  # pragma: no cover
+        desc, found = match, f"检测失败: {e}"
+    print(f"目标窗口      : {desc} -> {found}")
 
     ocr_ok = ocr.PS_OCR.exists()
     print(f"OCR 脚本      : {'存在' if ocr_ok else '缺失 ' + str(ocr.PS_OCR)}")

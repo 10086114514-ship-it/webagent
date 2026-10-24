@@ -19,10 +19,14 @@ class ConfigError(RuntimeError):
 DEFAULTS: dict[str, Any] = {
     # —— 目标浏览器窗口 ——
     "target": {
-        "window_title": "在线测验",  # 浏览器标签页标题（= 网页 <title>）
-        "window_match": "contains",  # contains | regex | exact
-        "client_area": True,         # True=只取网页视口；False=含浏览器边框
-        "activate": True,            # 每次操作前把窗口切到前台
+        # browser = 按浏览器进程找窗口（推荐：换网页、换标题都不用改配置）
+        # process = 按 target.process 里的进程名找
+        # contains / regex / exact = 按 target.window_title 匹配标题
+        "window_match": "browser",
+        "window_title": "在线测验",  # 仅标题模式下使用
+        "process": "",              # 仅 process 模式使用，如 "msedge.exe|chrome.exe"
+        "client_area": True,        # True=只取网页视口；False=含浏览器边框
+        "activate": True,           # 每次操作前把窗口切到前台
     },
     # —— 模型接入（OpenAI 兼容协议，可换任意服务商）——
     "model": {

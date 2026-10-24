@@ -128,11 +128,20 @@ python -m webagent key
 用浏览器打开要操作的页面，然后确认能定位到窗口：
 
 ```bash
-python -m webagent windows          # 列出所有窗口标题
+python -m webagent windows          # 列出所有窗口（含所属进程名）
 python -m webagent doctor           # 检查「目标窗口」是否显示“找到”
 ```
 
-如果标题不对，改 `config.json` 里的 `target.window_title`（子串匹配即可）。
+默认使用 `target.window_match: "browser"`——**按浏览器进程查找，完全不看标签页标题**，
+所以换网页、换标题都不用改配置。也可以改成：
+
+| `window_match` | 行为 |
+| --- | --- |
+| `browser`（默认） | 自动找浏览器窗口：前台浏览器优先，否则取面积最大的；不用管标题 |
+| `process` | 按 `target.process` 里的进程名找，如 `"msedge.exe\|chrome.exe"` |
+| `contains` / `regex` / `exact` | 按 `target.window_title` 匹配标签页标题 |
+
+> 多标签页时，程序截取的是**当前显示的标签页**，请把目标页保持在前台。
 
 ### 4. 先预览，再执行
 
@@ -159,8 +168,9 @@ python -m webagent run --mock-live --force   # 不联网，验证“截图→定
 
 | 字段 | 说明 | 默认 |
 | --- | --- | --- |
-| `target.window_title` | 浏览器标签页标题（=网页 `<title>`），子串匹配 | `在线测验` |
-| `target.window_match` | `contains` / `regex` / `exact` | `contains` |
+| `target.window_match` | `browser` / `process` / `contains` / `regex` / `exact` | `browser` |
+| `target.window_title` | 标题模式下的匹配串 | `在线测验` |
+| `target.process` | `process` 模式下的进程名（`\|` 分隔） | `""` |
 | `target.client_area` | 只截网页视口，不含浏览器边框 | `true` |
 | `target.activate` | 操作前把窗口切到前台 | `true` |
 | `model.base_url` | OpenAI 兼容接口地址 | DeepSeek |
