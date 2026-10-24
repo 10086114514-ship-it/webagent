@@ -21,8 +21,8 @@ classifiers = [
 dependencies = ["Pillow>=9.0"]
 
 [project.urls]
-Homepage = "https://github.com/your-name/webagent"
-Issues = "https://github.com/your-name/webagent/issues"
+Homepage = "https://github.com/10086114514-ship-it/webagent"
+Issues = "https://github.com/10086114514-ship-it/webagent/issues"
 
 [project.scripts]
 webagent = "webagent.__main__:main"

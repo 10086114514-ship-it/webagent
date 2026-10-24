@@ -105,7 +105,7 @@
 - 一个 OpenAI 兼容服务的 API key
 
 ```bash
-git clone https://github.com/<your-name>/webagent.git
+git clone https://github.com/10086114514-ship-it/webagent.git
 cd webagent
 python -m pip install -r requirements.txt
 copy config.example.json config.json
