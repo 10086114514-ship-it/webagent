@@ -14,8 +14,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from PIL import Image  # noqa: E402
+
 from webagent.agent import (  # noqa: E402
-    WebAgent, _bbox_center, _extract_json, normalize_text,
+    WebAgent, _bbox_center, _extract_json, aggregate_verification, normalize_text,
 )
 from webagent.capture import Rect  # noqa: E402
 from webagent.config import DEFAULTS, Config, _deep_merge  # noqa: E402
@@ -121,8 +123,13 @@ class TestAgentHelpers(unittest.TestCase):
 
     @staticmethod
     def _result(*texts):
-        words = [OcrWord(t, 10, 10 + i * 40, 200, 24) for i, t in enumerate(texts)]
+        # y 从 300 开始，落在浏览器工具栏(顶部 12%)之外
+        words = [OcrWord(t, 10, 300 + i * 40, 200, 24) for i, t in enumerate(texts)]
         return OcrResult("zh-Hans", words)
+
+    @staticmethod
+    def _img():
+        return Image.new("RGB", (1000, 1000), "white")
 
     def test_question_text_skips_options(self):
         res = self._result(
@@ -131,19 +138,65 @@ class TestAgentHelpers(unittest.TestCase):
             "A. 第一个选项",
             "B. 第二个选项",
         )
-        self.assertEqual(self.agent._question_text(res), "下列哪个选项是正确的?")
+        self.assertEqual(self.agent._question_text(self._img(), res), "下列哪个选项是正确的?")
+
+    def test_question_text_skips_browser_chrome(self):
+        words = [
+            OcrWord("C:\\Users\\me\\demo.html", 10, 40, 300, 24),   # 地址栏，应被忽略
+            OcrWord("这一行才是题目内容", 10, 400, 300, 24),
+        ]
+        res = OcrResult("zh-Hans", words)
+        self.assertEqual(self.agent._question_text(self._img(), res), "这一行才是题目内容")
 
     def test_progress_slash(self):
         res = self._result("第 3 / 20 题", "题目内容")
-        self.assertEqual(self.agent._progress(res), (3, 20))
+        self.assertEqual(self.agent._progress(self._img(), res), (3, 20))
 
     def test_progress_chinese(self):
         res = self._result("第 7 题", "题目内容")
-        self.assertEqual(self.agent._progress(res), (7, 0))
+        self.assertEqual(self.agent._progress(self._img(), res), (7, 0))
 
     def test_progress_none(self):
         res = self._result("一些普通文字")
-        self.assertIsNone(self.agent._progress(res))
+        self.assertIsNone(self.agent._progress(self._img(), res))
+
+
+class TestVerification(unittest.TestCase):
+    """回读校验的汇总逻辑。"""
+
+    @staticmethod
+    def _view(options=True, state=True, progress=None, question=""):
+        return {
+            "has_options": options,
+            "has_state": state,
+            "progress": progress,
+            "question": question,
+        }
+
+    def test_all_answered(self):
+        ok, summary = aggregate_verification([self._view(True, True, (5, 5), "第5题")])
+        self.assertTrue(ok)
+        self.assertIn("扫描 1 屏", summary)
+
+    def test_unanswered_detected(self):
+        ok, summary = aggregate_verification([self._view(True, False, None, "第7题: 缺答")])
+        self.assertFalse(ok)
+        self.assertIn("疑似未作答", summary)
+
+    def test_incomplete_progress(self):
+        ok, summary = aggregate_verification([self._view(False, False, (3, 20), "")])
+        self.assertFalse(ok)
+        self.assertIn("3/20", summary)
+
+    def test_empty_scan_passes(self):
+        ok, _ = aggregate_verification([])
+        self.assertTrue(ok)
+
+    def test_duplicate_questions_deduped(self):
+        views = [self._view(True, False, None, "同一道题"), self._view(True, False, None, "同一道题")]
+        ok, summary = aggregate_verification(views)
+        self.assertFalse(ok)
+        self.assertEqual(summary.count("同一道题"), 1)
 
 
 if __name__ == "__main__":

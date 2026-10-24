@@ -55,6 +55,8 @@ DEFAULTS: dict[str, Any] = {
         "step_delay_s": 0.5,         # 每轮之间间隔
         "cooldown_s": 2.0,           # 同一“状态指纹”多久内不重复执行
         "done_guard": True,          # 模型想结束时，若还有未答题目则要求继续（单页多题用）
+        "verify_before_finish": True,  # 收工前回读校验：滚回顶部逐屏扫描确认没有漏答
+        "verify_max_scrolls": 12,      # 回读时最多向下扫描几屏
         "force_vision_when_no_ocr": True,
     },
     "action": {

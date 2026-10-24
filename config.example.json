@@ -35,7 +35,9 @@
     "max_steps": 20,
     "step_delay_s": 0.5,
     "cooldown_s": 2.0,
-    "done_guard": true
+    "done_guard": true,
+    "verify_before_finish": true,
+    "verify_max_scrolls": 12
   },
 
   "action": {

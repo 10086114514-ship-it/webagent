@@ -187,6 +187,8 @@ python -m webagent run --mock-live --force   # 不联网，验证“截图→定
 | `agent.step_delay_s` | 每步之间的等待 | `0.5` |
 | `agent.cooldown_s` | 同一页面状态多久内不重复执行 | `2.0` |
 | `agent.done_guard` | 模型想结束时若还有未答题目，要求继续（单页多题用） | `true` |
+| `agent.verify_before_finish` | 收工前回读校验：滚回顶部逐屏扫描确认没漏答 | `true` |
+| `agent.verify_max_scrolls` | 回读时最多向下扫描几屏 | `12` |
 | `action.type_mode` | `paste`（剪贴板，中文可靠）/ `unicode` | `paste` |
 | `action.click_delay_ms` | 点击后等待 | `120` |
 | `runtime.interval_s` | watch 模式采样间隔 | `2.0` |
