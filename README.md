@@ -5,6 +5,7 @@
 ![演示页面](docs/demo.png)
 
 <p>
+  <img alt="CI" src="https://github.com/10086114514-ship-it/webagent/actions/workflows/ci.yml/badge.svg">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%2B-blue">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-lightgrey">
