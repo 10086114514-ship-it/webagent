@@ -7,16 +7,19 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from webagent.agent import _bbox_center, _extract_json, normalize_text  # noqa: E402
+from webagent.agent import (  # noqa: E402
+    WebAgent, _bbox_center, _extract_json, normalize_text,
+)
 from webagent.capture import Rect  # noqa: E402
 from webagent.config import DEFAULTS, Config, _deep_merge  # noqa: E402
-from webagent.ocr import OcrWord, lines_from_words  # noqa: E402
+from webagent.ocr import OcrResult, OcrWord, lines_from_words  # noqa: E402
 
 
 class TestNormalize(unittest.TestCase):
@@ -107,6 +110,40 @@ class TestConfig(unittest.TestCase):
     def test_section_mapping(self):
         cfg = self._cfg({})
         self.assertIn("base_url", dict(cfg.model))
+
+
+class TestAgentHelpers(unittest.TestCase):
+    """单页多题：题目识别 / 进度解析 / 台账去重。"""
+
+    def setUp(self):
+        cfg = Config(_deep_merge(DEFAULTS, {}), Path("config.json"))
+        self.agent = WebAgent(cfg, logging.getLogger("test"))
+
+    @staticmethod
+    def _result(*texts):
+        words = [OcrWord(t, 10, 10 + i * 40, 200, 24) for i, t in enumerate(texts)]
+        return OcrResult("zh-Hans", words)
+
+    def test_question_text_skips_options(self):
+        res = self._result(
+            "第 3 / 20 题",
+            "下列哪个选项是正确的？",
+            "A. 第一个选项",
+            "B. 第二个选项",
+        )
+        self.assertEqual(self.agent._question_text(res), "下列哪个选项是正确的?")
+
+    def test_progress_slash(self):
+        res = self._result("第 3 / 20 题", "题目内容")
+        self.assertEqual(self.agent._progress(res), (3, 20))
+
+    def test_progress_chinese(self):
+        res = self._result("第 7 题", "题目内容")
+        self.assertEqual(self.agent._progress(res), (7, 0))
+
+    def test_progress_none(self):
+        res = self._result("一些普通文字")
+        self.assertIsNone(self.agent._progress(res))
 
 
 if __name__ == "__main__":

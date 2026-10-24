@@ -186,6 +186,7 @@ python -m webagent run --mock-live --force   # 不联网，验证“截图→定
 | `agent.max_steps` | 单轮最多动作步数 | `20` |
 | `agent.step_delay_s` | 每步之间的等待 | `0.5` |
 | `agent.cooldown_s` | 同一页面状态多久内不重复执行 | `2.0` |
+| `agent.done_guard` | 模型想结束时若还有未答题目，要求继续（单页多题用） | `true` |
 | `action.type_mode` | `paste`（剪贴板，中文可靠）/ `unicode` | `paste` |
 | `action.click_delay_ms` | 点击后等待 | `120` |
 | `runtime.interval_s` | watch 模式采样间隔 | `2.0` |
@@ -304,6 +305,10 @@ python -m webagent run --config tools/test_config.json --dry-run
 
 **题目在下方、没有“下一题”按钮**：程序会自动发 `scroll` 向下滚动继续作答。
 滚动时会把鼠标移到页面中央（滚轮只作用于光标下的窗口），并等待动画结束。
+
+**单页几十道题**：程序会维护一份「已完成」台账（题目摘要 + 已选答案），随上下文一起发给模型，
+避免滚动后重复作答；模型想提前收工时还会检查「当前视图是否还有未答选项」「第 x/y 题是否没做完」，
+不满足就要求它继续（`agent.done_guard`）。
 
 **模型返回非 JSON**：程序会自动剥离代码块并截取 `{...}`；仍失败就把 `temperature` 调 0。
 

@@ -34,7 +34,8 @@
     "instruction": "",
     "max_steps": 20,
     "step_delay_s": 0.5,
-    "cooldown_s": 2.0
+    "cooldown_s": 2.0,
+    "done_guard": true
   },
 
   "action": {

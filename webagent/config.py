@@ -51,9 +51,10 @@ DEFAULTS: dict[str, Any] = {
     # —— 智能体 ——
     "agent": {
         "instruction": "",           # 任务指令，空则用内置默认
-        "max_steps": 8,              # 单次循环最多动作轮数
+        "max_steps": 20,             # 单次循环最多动作轮数
         "step_delay_s": 0.5,         # 每轮之间间隔
         "cooldown_s": 2.0,           # 同一“状态指纹”多久内不重复执行
+        "done_guard": True,          # 模型想结束时，若还有未答题目则要求继续（单页多题用）
         "force_vision_when_no_ocr": True,
     },
     "action": {

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "webagent"
-version = "1.0.2"
+version = "1.0.3"
 description = "Screen-recognition web automation agent driven by any OpenAI-compatible model"
 readme = "README.md"
 requires-python = ">=3.9"

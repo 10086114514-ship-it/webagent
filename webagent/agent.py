@@ -47,7 +47,8 @@ SYSTEM_PROMPT = """你是一个网页操作智能体，负责在网页上执行�
    滚完下一步再继续作答；滚到底也没有新内容，才置 done=true。
    注意：这种情况下**不要**因为找不到“下一题”按钮就 done=true。
 6. 目标在折叠区域时先发 scroll（此时 done=false），下一步再点击。
-7. 每次只规划“当前这一步”最合适的动作，不要一次性规划多轮。"""
+7. 【已完成】里列出的题目已经答过，**不要重复点击**；滚动后如果又看到它们，直接继续往下。
+8. 每次只规划“当前这一步”最合适的动作，不要一次性规划多轮。"""
 
 #: 按钮/输入框关键词，用于从 OCR 里挑出可交互元素。
 BUTTON_WORDS = ("下一题", "上一题", "下一步", "上一步", "提交", "确定", "保存",
@@ -141,6 +142,10 @@ class WebAgent:
         self._last_fp: str = ""
         self._last_fp_at: float = 0.0
         self._step_note: str = ""
+        # 单页多题场景的“作答台账”：记录已作答题目的摘要与答案，避免重复作答
+        self.ledger: list[str] = []
+        self._ledger_keys: set[str] = set()
+        self._done_nudges: int = 0
 
     # ------------------------------------------------------------------ #
     def snapshot(self) -> tuple[Image.Image, capture.Rect, int | None, ocr.OcrResult | None]:
@@ -228,6 +233,71 @@ class WebAgent:
         return items, "；".join(state)
 
     # ------------------------------------------------------------------ #
+    def _question_text(self, result: ocr.OcrResult | None) -> str:
+        """从 OCR 里猜出“当前题目”的文本（排除选项、按钮、状态行）。"""
+        if result is None:
+            return ""
+        cands: list[str] = []
+        for row in ocr.lines_from_words(result.words, x_gap=0.4, y_gap=0.6):
+            text = normalize_text(" ".join(seg.text for seg in row))
+            if not text:
+                continue
+            if re.match(r"^[（(]?\s*[A-Ha-h]\s*[.．、)）:：]\s*\S", text):
+                continue
+            if any(k in text for k in BUTTON_WORDS) or "已选" in text or "已填" in text:
+                continue
+            if len(text) >= 6:  # 太短的多半是页码/图标
+                cands.append(text)
+        return max(cands, key=len) if cands else ""
+
+    def _progress(self, result: ocr.OcrResult | None) -> tuple[int, int] | None:
+        """解析“第 3 / 20 题”“3/20”这类进度，返回 (当前, 总数)；总数未知时为 0。"""
+        if result is None:
+            return None
+        texts = [
+            normalize_text(seg.text)
+            for row in ocr.lines_from_words(result.words, x_gap=0.4, y_gap=0.6)
+            for seg in row
+        ]
+        joined = " ".join(texts)
+        m = re.search(r"(\d{1,3})\s*/\s*(\d{1,3})", joined)
+        if m:
+            cur, total = int(m.group(1)), int(m.group(2))
+            if 0 < cur <= total <= 999:
+                return cur, total
+        m = re.search(r"第\s*(\d{1,3})\s*题", joined)
+        if m:
+            return int(m.group(1)), 0
+        return None
+
+    def _update_ledger(self, img: Image.Image, result: ocr.OcrResult | None) -> None:
+        """把“已作答”的题目记进台账（同一题只记一次）。"""
+        if result is None:
+            return
+        _elements, state = self._elements(img, result)
+        if not state:
+            return
+        question = self._question_text(result)
+        key = question[:36]
+        if not key or key in self._ledger_keys:
+            return
+        self._ledger_keys.add(key)
+        answer = state.replace("（本题已作答）", "")
+        self.ledger.append(f"{len(self.ledger) + 1}. {key} → {answer}")
+
+    def _unfinished_reason(self, img: Image.Image, result: ocr.OcrResult | None) -> str | None:
+        """模型想收工时，检查是否还有明显没做完的题目。"""
+        if result is None:
+            return None
+        elements, state = self._elements(img, result)
+        if any(item.startswith("- 选项") for item in elements) and not state:
+            return "当前视图里还有未作答的选项"
+        prog = self._progress(result)
+        if prog and prog[1] and prog[0] < prog[1]:
+            return f"进度显示第 {prog[0]}/{prog[1]} 题"
+        return None
+
+    # ------------------------------------------------------------------ #
     def _user_message(self, img: Image.Image, rect: capture.Rect, result: ocr.OcrResult | None, step: int) -> str:
         plain, lines = self._page_text(img, result)
         w, h = img.size
@@ -246,6 +316,9 @@ class WebAgent:
                     "如果还有题目没做完，说明内容在下方，请先发 scroll 向下滚动（done=false），"
                     "下一步再继续作答；不要因为找不到按钮就直接 done=true。"
                 )
+            if self.ledger:
+                parts.append("【已完成（不要重复作答）】")
+                parts.extend(self.ledger[-20:])
 
         if lines:
             parts.append("【可见文本】每行格式 bbox \"文本\"（归一化坐标）")
@@ -352,6 +425,12 @@ class WebAgent:
             plain, _ = self._page_text(img, result)
             fp = self._fingerprint(img, plain)
 
+            # 每轮重新开始记账
+            self.ledger.clear()
+            self._ledger_keys.clear()
+            self._done_nudges = 0
+            self._update_ledger(img, result)
+
             if not force and fp == self._last_fp and time.time() - self._last_fp_at < float(self.cfg.agent.cooldown_s):
                 report.ok = True
                 report.message = "页面未变化，跳过（冷却中）"
@@ -379,6 +458,16 @@ class WebAgent:
                     report.executed.extend(self.execute(plan, img, rect))
 
                 if bool(plan.get("done")):
+                    guard = bool(getattr(self.cfg.agent, "done_guard", True))
+                    reason = None if (dry_run or not guard) else self._unfinished_reason(img, result)
+                    if reason and self._done_nudges < 2:
+                        self._done_nudges += 1
+                        self._step_note = (
+                            f"检测到可能还没做完：{reason}。不要结束——继续作答；"
+                            f"若题目在下方，请先发 scroll 向下滚动，下一步再继续。"
+                        )
+                        self.log.info("模型想结束，但%s，已要求继续", reason)
+                        continue
                     break
 
                 if dry_run:
@@ -403,6 +492,9 @@ class WebAgent:
                     img, rect, _hwnd, result = self.snapshot()
                     plain2, _ = self._page_text(img, result)
                     fp2 = self._fingerprint(img, plain2)
+
+                # 记账：这一步如果让某题变成了“已作答”，记下来防止重复
+                self._update_ledger(img, result)
 
                 # 无变化自检：动作没生效就别原样重试，避免死循环
                 if fp2 == fp:
