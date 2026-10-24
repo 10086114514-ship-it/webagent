@@ -1,0 +1,9 @@
+{
+  "done": false,
+  "reasoning": "本地假模型：点击选项 A",
+  "actions": [
+    {"type": "click", "bbox": [0.295, 0.447, 0.350, 0.467], "reason": "点击 A"},
+    {"type": "wait", "ms": 300}
+  ],
+  "result": null
+}

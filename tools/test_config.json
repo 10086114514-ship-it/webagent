@@ -1,0 +1,19 @@
+{
+  "_comment": "离线测试用：指向 tools/mock_server.py，不消耗真实 API。",
+  "target": {
+    "window_title": "在线测验",
+    "window_match": "contains",
+    "client_area": true,
+    "activate": true
+  },
+  "model": {
+    "base_url": "http://127.0.0.1:8799/v1",
+    "api_key": "sk-test-local",
+    "model": "test-model",
+    "vision": false,
+    "temperature": 0.0
+  },
+  "ocr": { "enabled": true, "language": "zh-Hans", "scale": 1.0 },
+  "agent": { "instruction": "", "max_steps": 3, "step_delay_s": 0.1, "cooldown_s": 1.0 },
+  "runtime": { "save_debug": false, "debug_dir": "debug" }
+}

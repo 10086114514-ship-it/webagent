@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>在线测验</title>
+<style>
+  :root { --bg:#f4f6fb; --card:#ffffff; --line:#e2e7f0; --brand:#2563eb; --ok:#16a34a; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); font-family:"Microsoft YaHei","Segoe UI",sans-serif;
+    color:#1f2937; min-height:100vh; display:flex; justify-content:center; padding:48px 16px;
+  }
+  .card {
+    width:760px; background:var(--card); border:1px solid var(--line);
+    border-radius:16px; padding:32px 36px; box-shadow:0 10px 30px rgba(15,23,42,.06);
+  }
+  .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .tag { color:var(--brand); font-weight:700; letter-spacing:.5px; }
+  .timer { color:#6b7280; font-variant-numeric:tabular-nums; }
+  .progress { height:6px; background:#eef1f6; border-radius:99px; overflow:hidden; margin:12px 0 28px; }
+  .progress > div { height:100%; background:var(--brand); transition:width .25s; }
+  .qnum { color:#6b7280; font-size:14px; margin-bottom:6px; }
+  .qtext { font-size:24px; font-weight:600; line-height:1.5; margin-bottom:28px; }
+  .opt {
+    display:flex; align-items:center; gap:14px; padding:14px 16px; margin-bottom:12px;
+    border:1.5px solid var(--line); border-radius:12px; cursor:pointer; font-size:20px;
+    transition:border .15s, background .15s;
+  }
+  .opt:hover { border-color:#c7d2fe; background:#f8faff; }
+  .opt input { width:20px; height:20px; accent-color:var(--brand); }
+  .opt.chosen { border-color:var(--brand); background:#eef4ff; }
+  .fill {
+    width:100%; font-size:20px; padding:14px 16px; border:1.5px solid var(--line);
+    border-radius:12px; outline:none; margin-bottom:20px;
+  }
+  .fill:focus { border-color:var(--brand); }
+  .foot { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+  .sel { color:var(--ok); font-weight:600; }
+  button {
+    background:var(--brand); color:#fff; border:0; padding:12px 28px; border-radius:10px;
+    font-size:16px; cursor:pointer;
+  }
+  button:disabled { background:#a5b4fc; cursor:not-allowed; }
+  .result { font-size:22px; text-align:center; padding:40px 0; line-height:1.8; }
+  .score { font-size:40px; color:var(--brand); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <span class="tag">网页自动化演示 · 在线测验</span>
+    <span class="timer" id="timer">剩余时间 09:59</span>
+  </div>
+  <div class="progress"><div id="bar" style="width:20%"></div></div>
+
+  <div id="qzone">
+    <div class="qnum" id="qnum"></div>
+    <div class="qtext" id="qtext"></div>
+    <div id="options"></div>
+  </div>
+
+  <div id="done" style="display:none" class="result">
+    <div>测验完成</div>
+    <div class="score" id="score"></div>
+    <div id="summary"></div>
+  </div>
+
+  <div class="foot">
+    <span class="sel" id="sel"></span>
+    <button id="next">下一题</button>
+  </div>
+</div>
+
+<script>
+const BANK = [
+  { q:"下列哪个数最接近 √2 的值？",
+    o:["A. 1.414","B. 1.732","C. 2.236","D. 3.141"], a:0, kind:"mcq" },
+  { q:"太阳系中体积最大的行星是？",
+    o:["A. 地球","B. 木星","C. 土星","D. 火星"], a:1, kind:"mcq" },
+  { q:"“白日依山尽”的下一句是？",
+    o:["A. 黄河入海流","B. 更上一层楼","C. 疑似银河落九天","D. 春风吹又生"], a:0, kind:"mcq" },
+  { q:"水的化学式是？",
+    o:["A. CO₂","B. NaCl","C. H₂O","D. O₂"], a:2, kind:"mcq" },
+  { q:"中国的首都是？", o:[], a:0, kind:"fill", ans:"北京" },
+];
+let idx = 0, chosen = new Array(BANK.length).fill(null);
+
+const qnum = document.getElementById("qnum");
+const qtext = document.getElementById("qtext");
+const options = document.getElementById("options");
+const sel = document.getElementById("sel");
+const next = document.getElementById("next");
+const bar = document.getElementById("bar");
+
+function render() {
+  if (idx >= BANK.length) { return showDone(); }
+  const item = BANK[idx];
+  qnum.textContent = "第 " + (idx+1) + " / " + BANK.length + " 题";
+  qtext.textContent = item.q;
+  options.innerHTML = "";
+  if (item.kind === "fill") {
+    const inp = document.createElement("input");
+    inp.className = "fill"; inp.type = "text"; inp.placeholder = "请在此填写答案";
+    inp.addEventListener("input", () => { chosen[idx] = inp.value.trim(); refreshSel(); });
+    options.appendChild(inp);
+  } else {
+    item.o.forEach((txt, i) => {
+      const lab = document.createElement("label");
+      lab.className = "opt";
+      const radio = document.createElement("input");
+      radio.type = "radio"; radio.name = "q";
+      radio.addEventListener("change", () => { chosen[idx] = i; refreshSel(); });
+      const sp = document.createElement("span"); sp.textContent = txt;
+      lab.appendChild(radio); lab.appendChild(sp);
+      options.appendChild(lab);
+    });
+  }
+  refreshSel();
+  bar.style.width = ((idx+1)/BANK.length*100) + "%";
+}
+
+function refreshSel() {
+  const v = chosen[idx];
+  if (BANK[idx].kind === "fill") {
+    sel.textContent = v ? ("已填: " + v) : "";
+  } else {
+    sel.textContent = (v === null) ? "" : ("已选: " + "ABCD"[v]);
+  }
+  if (BANK[idx].kind === "mcq") {
+    [...options.children].forEach((c, i) => c.classList.toggle("chosen", i === v));
+  }
+  next.disabled = (v === null || v === "");
+  next.textContent = (idx === BANK.length - 1) ? "提交" : "下一题";
+}
+
+function showDone() {
+  document.getElementById("qzone").style.display = "none";
+  document.getElementById("done").style.display = "block";
+  document.querySelector(".foot").style.display = "none";
+  let right = 0;
+  const detail = [];
+  BANK.forEach((item, i) => {
+    const ok = item.kind === "fill"
+      ? (chosen[i] || "").trim() === item.ans
+      : chosen[i] === item.a;
+    if (ok) right++;
+    detail.push((i+1) + ". " + (ok ? "✓" : "✗"));
+  });
+  document.getElementById("score").textContent = right + " / " + BANK.length;
+  document.getElementById("summary").textContent = detail.join("  ");
+}
+
+next.addEventListener("click", () => { if (!next.disabled) { idx++; render(); } });
+
+// 调试用：quiz.html?q=5 直接从第 5 题开始；?q=4&filled=1 让第 4 题预先选中答案
+const params = new URLSearchParams(location.search);
+const startQ = parseInt(params.get("q") || "1", 10);
+if (startQ >= 1 && startQ <= BANK.length) {
+  idx = startQ - 1;
+  if (params.get("filled")) {
+    const prev = BANK[idx];
+    chosen[idx] = (prev.kind === "fill") ? (prev.ans || "") : (prev.a ?? 0);
+  }
+}
+
+let sec = 599;
+setInterval(() => {
+  sec = Math.max(0, sec - 1);
+  const m = String(Math.floor(sec/60)).padStart(2,"0");
+  const s = String(sec%60).padStart(2,"0");
+  document.getElementById("timer").textContent = "剩余时间 " + m + ":" + s;
+}, 1000);
+
+render();
+</script>
+</body>
+</html>

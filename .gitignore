@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# 本地配置（含 API key，绝对不要提交）
+config.json
+config.local.json
+.env
+.env.*
+
+# 运行产物
+debug/
+logs/
+*.log
+tools/requests.jsonl
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
