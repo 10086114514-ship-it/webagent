@@ -1,0 +1,80 @@
+name: Bug 报告
+description: 报告一个可复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供完整信息，**不要粘贴 API key**。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 问题描述
+      description: 发生了什么？预期是什么？
+      placeholder: 例如：第 4 题选完后程序一直重复点击该选项，没有点“下一题”。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 越具体越好，包括页面类型、执行了哪条命令
+      placeholder: |
+        1. 打开 xxx 网页
+        2. 运行 python -m webagent run --live
+        3. 观察到 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: doctor 输出
+      description: 粘贴 `python -m webagent doctor` 的完整输出
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: 模型
+      description: 服务商与模型名（base_url 可打码）
+      placeholder: DeepSeek / deepseek-chat，vision=false
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: 贴出 `run` 打出的步骤 JSON；如有 `debug/` 截图可拖进来
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: `python -m webagent --version` 的输出
+      placeholder: webagent 1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scaling
+    attributes:
+      label: 屏幕缩放
+      options:
+        - 100%
+        - 125%
+        - 150%
+        - 175%
+        - 200%
+        - 不清楚
+    validations:
+      required: false

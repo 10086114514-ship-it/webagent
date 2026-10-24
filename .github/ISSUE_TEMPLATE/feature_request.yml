@@ -1,0 +1,44 @@
+name: 功能建议
+description: 提出新的能力或改进
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 需求背景
+      description: 你想解决什么问题？现在是怎么绕过去的？
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望方案
+      description: 你希望它怎么工作？可以附配置片段或伪代码
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 你考虑过的其它做法
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块
+      multiple: true
+      options:
+        - 截图 / 窗口定位
+        - OCR
+        - 模型接入
+        - 动作执行
+        - 提示词 / 计划协议
+        - CLI / 配置
+        - 文档
+    validations:
+      required: false

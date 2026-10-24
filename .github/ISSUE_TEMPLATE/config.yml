@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用问题 / 讨论
+    url: https://github.com/10086114514-ship-it/webagent/discussions
+    about: 不确定是不是 bug、或想聊聊怎么接入自己的页面，来这里。

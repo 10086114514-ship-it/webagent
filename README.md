@@ -2,6 +2,8 @@
 
 > 用**任意 OpenAI 兼容大模型**驱动网页自动操作：截图 → 识别 → 模型决策 → 鼠标键盘执行 → 复检，循环直到完成。
 
+[中文](README.md) | [English](README.en.md)
+
 ![演示页面](docs/demo.png)
 
 <p>
