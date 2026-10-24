@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 # 进程启动即声明 DPI 感知，保证截图与点击坐标系一致。
 from . import capture as _capture

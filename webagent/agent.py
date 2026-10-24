@@ -42,8 +42,12 @@ SYSTEM_PROMPT = """你是一个网页操作智能体，负责在网页上执行�
 2. 选择题不确定时选最可能的一项，不要空着。
 3. 填空题必须点中输入框再输入，输入文本就是答案本身（不要加“答案：”前缀）。
 4. 【注意】里若提示“页面没有变化”，说明上一步动作无效，必须换动作，不要原样重试。
-5. 目标在折叠区域时先发 scroll（此时 done=false），下一步再点击。
-6. 每次只规划“当前这一步”最合适的动作，不要一次性规划多轮。"""
+5. 长页面（很多题在同一页，只能靠滚动往下看）：本题做完后如果看不到新题目，
+   说明内容在下方，先发 {"type":"scroll","direction":"down","amount":600}（done=false），
+   滚完下一步再继续作答；滚到底也没有新内容，才置 done=true。
+   注意：这种情况下**不要**因为找不到“下一题”按钮就 done=true。
+6. 目标在折叠区域时先发 scroll（此时 done=false），下一步再点击。
+7. 每次只规划“当前这一步”最合适的动作，不要一次性规划多轮。"""
 
 #: 按钮/输入框关键词，用于从 OCR 里挑出可交互元素。
 BUTTON_WORDS = ("下一题", "上一题", "下一步", "上一步", "提交", "确定", "保存",
@@ -236,6 +240,12 @@ class WebAgent:
             if elements:
                 parts.append("【可交互元素】请直接使用下面的 bbox，不要自己估计坐标：")
                 parts.extend(elements[:80])
+            if elements and not any(item.startswith("- 按钮") for item in elements):
+                parts.append(
+                    "【提示】当前视图没有检测到“下一题/提交”这类按钮。"
+                    "如果还有题目没做完，说明内容在下方，请先发 scroll 向下滚动（done=false），"
+                    "下一步再继续作答；不要因为找不到按钮就直接 done=true。"
+                )
 
         if lines:
             parts.append("【可见文本】每行格式 bbox \"文本\"（归一化坐标）")
@@ -306,8 +316,13 @@ class WebAgent:
                     actions.type_text(text)
                 log.append(f"type {text!r}")
             elif kind == "scroll":
-                actions.scroll(str(act.get("direction", "down")), int(act.get("amount", self.cfg.action.scroll_step)))
-                log.append("scroll")
+                actions.scroll(
+                    str(act.get("direction", "down")),
+                    int(act.get("amount", self.cfg.action.scroll_step)),
+                    at=rect.center,  # 滚轮只作用于光标下的窗口，先把光标移进页面
+                )
+                log.append(f"scroll {act.get('direction', 'down')}")
+                time.sleep(0.35)  # 等平滑滚动/懒加载稳定，避免截到中间态
             elif kind == "key":
                 actions.press_key(str(act.get("key", "Enter")))
                 log.append(f"key {act.get('key')}")

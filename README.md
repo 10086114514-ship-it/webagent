@@ -302,6 +302,9 @@ python -m webagent run --config tools/test_config.json --dry-run
 
 **输入中文没反应**：保持 `action.type_mode = "paste"`；若目标程序禁用粘贴，改 `"unicode"`。
 
+**题目在下方、没有“下一题”按钮**：程序会自动发 `scroll` 向下滚动继续作答。
+滚动时会把鼠标移到页面中央（滚轮只作用于光标下的窗口），并等待动画结束。
+
 **模型返回非 JSON**：程序会自动剥离代码块并截取 `{...}`；仍失败就把 `temperature` 调 0。
 
 ## 已知限制

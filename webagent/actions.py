@@ -118,13 +118,20 @@ def _mouse_input(flags: int, wheel: int = 0) -> INPUT:
     return inp
 
 
-def scroll(direction: str, amount: int = 300) -> None:
-    """direction: up | down"""
-    sign = -1 if direction == "up" else 1
-    clicks = max(1, amount // WHEEL_DELTA)
+def scroll(direction: str = "down", amount: int = 300, at: tuple[int, int] | None = None) -> None:
+    """滚动鼠标滚轮。
+
+    滚轮作用于**光标所在窗口**，所以务必先 ``at`` 把光标移到目标窗口内，
+    否则会把别的窗口（或桌面）滚走。
+    """
+    if at is not None:
+        move(int(at[0]), int(at[1]))
+        time.sleep(0.05)
+    sign = -1 if str(direction).lower() == "up" else 1
+    clicks = max(1, int(amount) // WHEEL_DELTA)
     for _ in range(clicks):
         _send_input(_mouse_input(MOUSEEVENTF_WHEEL, sign * WHEEL_DELTA))
-        time.sleep(0.01)
+        time.sleep(0.02)
 
 
 def press_key(name: str) -> None:
